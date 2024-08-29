@@ -12,6 +12,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
+def load_config():
+    with open('config.json', 'r') as file:
+        return json.load(file)
+
+
 def check_class_availability(class_number, subject_code, term_code):
     # Set up headless Chrome
     chrome_options = Options()
@@ -128,9 +133,9 @@ def check_class_availability(class_number, subject_code, term_code):
     finally:
         driver.quit()
 
-def send_email():
+def send_email(receiver_email):
     sender = os.getenv("SENDER_EMAIL")
-    receiver = os.getenv("RECEIVER_EMAIL")
+    receiver = receiver_email
     password = os.getenv("SENDER_PASSWORD")
     subject = "Class Availability Alert"
     body = "The class you were waiting for is now available!"
@@ -165,12 +170,14 @@ def send_email():
         print(f"Failed to send email: {e}")
 
 if __name__ == "__main__":
-    # Replace with the specific class number and subject code you want to check
-    class_number = "4730"
-    subject_code = "CMP_SC"  # This should be the value attribute of the <option> tag
+    config = load_config()
+    class_number = config["class_number"]
+    subject_code = config["subject_code"]
+    term_code = config["term_code"]
+
 
     load_dotenv()
 
-    if check_class_availability(class_number, subject_code, "5243"):
-        send_email()
+    if check_class_availability(class_number, subject_code, term_code):
+        send_email(config["receiver"])
         print("Email sent")
