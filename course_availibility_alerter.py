@@ -6,7 +6,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
-import yagmail
+from selenium.webdriver.common.action_chains import ActionChains
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from dotenv import load_dotenv
 
 def check_class_availability(class_number, subject_code, term_code):
     # Set up headless Chrome
@@ -30,46 +34,86 @@ def check_class_availability(class_number, subject_code, term_code):
             lambda d: d.execute_script('return document.readyState') == 'complete'
         )
         print("Page loaded")
+        driver.switch_to.frame("TargetContent")
+
+        time.sleep(5)
 
         # Select the term from the dropdown
-        term_dropdown = Select(driver.find_element(By.ID, 'CLASS_SRCH_WRK2_STRM$35$'))
+        term_dropdown = Select(driver.find_element(By.ID, "CLASS_SRCH_WRK2_STRM$35$"))
         term_dropdown.select_by_value(term_code)
         print("Term selected")
+
+        time.sleep(5)
+
 
         # Select the subject from the dropdown
         subject_dropdown = Select(driver.find_element(By.ID, 'SSR_CLSRCH_WRK_SUBJECT_SRCH$0'))
         subject_dropdown.select_by_value(subject_code)
         print("Subject selected")
 
+        time.sleep(5)
+
+
         # Select the match dropdown
         match_dropdown = Select(driver.find_element(By.ID, 'SSR_CLSRCH_WRK_SSR_EXACT_MATCH1$1'))
         match_dropdown.select_by_value('E')
         print("Match selected")
 
+        time.sleep(5)
+        
+
         # Enter the class number
         class_number_input = driver.find_element(By.ID, 'SSR_CLSRCH_WRK_CATALOG_NBR$1')
         class_number_input.send_keys(class_number)
         print("Class number entered")
-
+        
+        #time.sleep(5)
+        
+        
         # Submit the search form
-        search_button = driver.find_element(By.ID, 'CLASS_SRCH_WRK2_SSR_PB_CLASS_SRCH')
-        search_button.click()
+        search_button = driver.find_element(By.ID, 'CLASS_SRCH_WRK2_SSR_PB_CLASS_SRCH')  # Replace with the actual ID of the search button
+        ActionChains(driver).move_to_element(search_button).click().perform()
         print("Search button clicked")
 
-        # Wait for the results page to load and display the results
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'SSR_CLSRCH_MTG1$scroll$0')))
-        print("Results loaded")
+        time.sleep(5)
 
+        # Wait for the results page to load and display the results
+        WebDriverWait(driver, 20).until(
+            lambda d: d.execute_script('return document.readyState') == 'complete'
+        )
+        print("Results loaded")
+        
+       
+        driver.switch_to.default_content()
+        
         # Check if the class is available
         table_index = 0
         while True:
+            driver.switch_to.frame("TargetContent")
             try:
+                print(f"Checking table {table_index}")
+                print(f'SSR_CLSRCH_MTG1$scroll${table_index}') 
                 results_table = driver.find_element(By.ID, f'SSR_CLSRCH_MTG1$scroll${table_index}')
-                if "Open" in results_table.text:
-                    return True
+                rows = results_table.find_elements(By.TAG_NAME, "tr")
+                print(results_table.text)
+                for row in rows:
+                    try:
+                        status_image = row.find_element(By.XPATH, ".//img[contains(@src, 'PS_CS_STATUS')]")
+                        status_src = status_image.get_attribute("src")
+                        status_alt = status_image.get_attribute("alt")
+                        
+                        print(f"Status image src: {status_src}")
+                        print(f"Status image alt: {status_alt}")
+                        
+                        if "open" in status_src.lower() or "open" in status_alt.lower():
+                            print("Class is available")
+                            return True
+                    except:
+                        continue
+                
                 table_index += 1
             except:
-                # Break the loop if no more tables are found
+                print("No more tables found")
                 break
 
         return False
@@ -85,20 +129,48 @@ def check_class_availability(class_number, subject_code, term_code):
         driver.quit()
 
 def send_email():
-    receiver = os.getenv("cvcrx@umsystem.edu")
+    sender = os.getenv("SENDER_EMAIL")
+    receiver = os.getenv("RECEIVER_EMAIL")
+    password = os.getenv("SENDER_PASSWORD")
+    subject = "Class Availability Alert"
     body = "The class you were waiting for is now available!"
-    
-    yag = yagmail.SMTP(os.getenv("*********"), os.getenv("*********"))
-    yag.send(
-        to=receiver,
-        subject="Class Availability Alert",
-        contents=body,
-    )
+
+    print(f"Sender: {sender}")
+    print(f"Seder password: {password}")
+    # Check if environment variables are set
+    if not sender or not receiver or not password:
+        print("Error: One or more environment variables are not set.")
+        print(f"SENDER_EMAIL: {sender}")
+        print(f"RECEIVER_EMAIL: {receiver}")
+        print(f"SENDER_PASSWORD: {password}")
+        return
+
+    # Create the email
+    msg = MIMEMultipart()
+    msg['From'] = sender
+    msg['To'] = receiver
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    # Send the email
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender, password)
+        text = msg.as_string()
+        server.sendmail(sender, receiver, text)
+        server.quit()
+        print("Email sent successfully")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
 if __name__ == "__main__":
     # Replace with the specific class number and subject code you want to check
-    class_number = "4850"
+    class_number = "4730"
     subject_code = "CMP_SC"  # This should be the value attribute of the <option> tag
+
+    load_dotenv()
 
     if check_class_availability(class_number, subject_code, "5243"):
         send_email()
+        print("Email sent")
