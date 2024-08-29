@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
@@ -179,5 +180,5 @@ if __name__ == "__main__":
     load_dotenv()
 
     if check_class_availability(class_number, subject_code, term_code):
-        send_email(config["receiver"])
+        send_email(config["receiver_email"])
         print("Email sent")
