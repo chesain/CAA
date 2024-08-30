@@ -134,12 +134,12 @@ def check_class_availability(class_number, subject_code, term_code):
     finally:
         driver.quit()
 
-def send_email(receiver_email):
+def send_email(receiver_email, subject_code, class_number):
     sender = os.getenv("SENDER_EMAIL")
     receiver = receiver_email
     password = os.getenv("SENDER_PASSWORD")
     subject = "Class Availability Alert"
-    body = "The class you were waiting for is now available!"
+    body = f"The class {subject_code} {class_number} you were waiting for is now available!"
 
     print(f"Sender: {sender}")
     print(f"Seder password: {password}")
@@ -180,5 +180,5 @@ if __name__ == "__main__":
     load_dotenv()
 
     if check_class_availability(class_number, subject_code, term_code):
-        send_email(config["receiver_email"])
+        send_email(config["receiver_email"], subject_code, class_number)
         print("Email sent")
