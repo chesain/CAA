@@ -1,1 +1,1 @@
-# CAA
+# CAA - Class Availability Alerter
